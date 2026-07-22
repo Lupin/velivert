@@ -9,5 +9,6 @@
   "min_sdk_version": "0.0.10",
   "entrypoint": "index.html",
   "type": "plugin",
-  "permissions": []
+  "permissions": [],
+  "supported_languages": ["fr"]
 }
