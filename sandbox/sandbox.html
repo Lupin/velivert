@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Vélivert Sandbox — M0</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --text: #e0e0e0;
+    --text-secondary: #999;
+    --accent: #00c853;
+    --accent-warn: #ff6d00;
+    --radius: 8px;
+    --font: -apple-system, BlinkMacSystemFont, "FK Grotesk Neue", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); padding: 16px; max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .card-header { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px; margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2a2a; }
+  .row:last-child { border-bottom: none; }
+  .row-name { font-size: 15px; font-weight: 600; }
+  .row-detail { font-size: 12px; color: var(--text-secondary); }
+  .row-distance { font-size: 16px; font-weight: 700; color: var(--accent); }
+  .row-bikes { font-size: 14px; }
+  .row-bikes.zero { color: var(--accent-warn); }
+  button { background: var(--accent); color: #000; border: none; border-radius: var(--radius); padding: 12px 24px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; font-family: var(--font); }
+  button:active { opacity: 0.8; }
+  .status { font-size: 13px; color: var(--text-secondary); text-align: center; padding: 20px 0; }
+  .status.error { color: var(--accent-warn); }
+  .slider-container { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .slider-label { font-size: 12px; color: var(--text-secondary); min-width: 35px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .stats { display: flex; gap: 16px; justify-content: center; margin: 16px 0; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; }
+  hr { border: none; border-top: 1px solid #2a2a2a; margin: 16px 0; }
+  .log { font-size: 11px; color: #555; margin-top: 8px; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<h1>Vélivert</h1>
+<p class="subtitle">Sandbox M0 — Test fetch GBFS + Haversine</p>
+
+<div id="status" class="status">Appuyez sur "Tester" pour lancer le test</div>
+
+<div class="card" id="results" style="display:none">
+  <div class="card-header">RÉSULTATS</div>
+  <div id="stations"></div>
+  <hr>
+  <div class="stats">
+    <div class="stat"><div class="stat-value" id="total-stations">-</div><div class="stat-label">Stations</div></div>
+    <div class="stat"><div class="stat-value" id="fetch-time">-</div><div class="stat-label">ms fetch</div></div>
+    <div class="stat"><div class="stat-value" id="calc-time">-</div><div class="stat-label">ms calcul</div></div>
+  </div>
+  <div class="card-header">RAYON</div>
+  <div class="slider-container">
+    <span class="slider-label">300m</span>
+    <input type="range" id="radius" min="300" max="3000" step="100" value="1000">
+    <span class="slider-label">3000m</span>
+  </div>
+  <div style="text-align:center;margin-top:4px;color:var(--accent);font-weight:700" id="radius-display">1000 m</div>
+</div>
+
+<button id="test-btn" onclick="runTest()">⚡ Tester</button>
+
+<div id="log" class="log"></div>
+
+<script>
+// === Haversine ===
+function haversine(lat1, lon1, lat2, lon2) {
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// === Safe fetch (wrap Promise pour éviter hang) ===
+function safeFetch(url) {
+  return new Promise(function(resolve) {
+    var start = Date.now();
+    fetch(url)
+      .then(function(r) {
+        if (!r.ok) { resolve({ok: false, status: r.status, time: Date.now() - start}); return; }
+        r.json().then(function(d) { resolve({ok: true, data: d, time: Date.now() - start}); })
+          .catch(function(e) { resolve({ok: false, error: 'JSON parse: ' + e.message, time: Date.now() - start}); });
+      })
+      .catch(function(e) { resolve({ok: false, error: 'Fetch: ' + e.message, time: Date.now() - start}); });
+  });
+}
+
+var INFO_URL = 'https://api.saint-etienne-metropole.fr/velivert/api/station_information.json';
+var STATUS_URL = 'https://api.saint-etienne-metropole.fr/velivert/api/station_status.json';
+var stationsData = [];
+
+function log(msg) {
+  var el = document.getElementById('log');
+  el.textContent += '[' + new Date().toLocaleTimeString() + '] ' + msg + '\n';
+}
+
+function getPosition() {
+  return new Promise(function(resolve, reject) {
+    if (!navigator.geolocation) { reject(new Error('Géolocalisation non supportée')); return; }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true, timeout: 8000, maximumAge: 60000
+    });
+  });
+}
+
+async function runTest() {
+  var btn = document.getElementById('test-btn');
+  var status = document.getElementById('status');
+  var results = document.getElementById('results');
+  var t0 = Date.now();
+
+  btn.disabled = true;
+  btn.textContent = 'Test en cours...';
+  status.textContent = '⚙ Localisation...';
+  status.className = 'status';
+  results.style.display = 'none';
+  document.getElementById('log').textContent = '';
+
+  // 1. Geoloc
+  try {
+    var pos = await getPosition();
+    var lat = pos.coords.latitude;
+    var lon = pos.coords.longitude;
+    log('📍 Position: ' + lat.toFixed(5) + ', ' + lon.toFixed(5));
+    status.textContent = '📍 Position obtenue — fetch des APIs...';
+  } catch(e) {
+    status.textContent = '⚠ ' + e.message + ' — position par défaut (Place Jean Jaurès)';
+    status.className = 'status error';
+    var lat = 45.44072;
+    var lon = 4.38735;
+    log('⚠ Géoloc refusée/échec, fallback Place Jean Jaurès');
+  }
+
+  // 2. Fetch APIs
+  var tFetchStart = Date.now();
+  var [infoResult, statusResult] = await Promise.all([safeFetch(INFO_URL), safeFetch(STATUS_URL)]);
+  var fetchTime = Date.now() - tFetchStart;
+
+  if (!infoResult.ok) { status.textContent = '❌ Erreur API station_information: ' + (infoResult.error || 'HTTP ' + infoResult.status); status.className = 'status error'; btn.disabled = false; btn.textContent = '⚡ Tester'; return; }
+  if (!statusResult.ok) { status.textContent = '❌ Erreur API station_status: ' + (statusResult.error || 'HTTP ' + statusResult.status); status.className = 'status error'; btn.disabled = false; btn.textContent = '⚡ Tester'; return; }
+
+  log('✅ station_information: ' + infoResult.time + 'ms, ' + infoResult.data.data.stations.length + ' stations');
+  log('✅ station_status: ' + statusResult.time + 'ms, ' + statusResult.data.data.stations.length + ' statuts');
+
+  // 3. Merge
+  var statusById = {};
+  statusResult.data.data.stations.forEach(function(s) { statusById[s.station_id] = s; });
+
+  var stations = infoResult.data.data.stations.map(function(s) {
+    var st = statusById[s.station_id] || {};
+    return {
+      station_id: s.station_id,
+      name: s.name,
+      lat: s.lat, lon: s.lon,
+      capacity: s.capacity || 0,
+      address: s.address || '',
+      bikes_available: st.num_bikes_available || 0,
+      docks_available: st.num_docks_available || 0
+    };
+  });
+
+  // 4. Haversine + filter + sort
+  var tCalcStart = Date.now();
+  var radius = parseInt(document.getElementById('radius').value);
+  stations.forEach(function(s) { s.distance = Math.round(haversine(lat, lon, s.lat, s.lon)); });
+  var nearby = stations.filter(function(s) { return s.distance <= radius; });
+  nearby.sort(function(a, b) { return a.distance - b.distance; });
+  var top3 = nearby.slice(0, 3);
+  var calcTime = Date.now() - tCalcStart;
+
+  stationsData = top3;
+
+  // 5. Render
+  var html = '';
+  top3.forEach(function(s) {
+    var bikesClass = s.bikes_available === 0 ? 'zero' : '';
+    html += '<div class="row">';
+    html += '<div><div class="row-name">' + s.name + '</div><div class="row-detail">' + (s.address || 'Saint-Étienne') + '</div></div>';
+    html += '<div style="text-align:right"><div class="row-distance">' + s.distance + ' m</div><div class="row-bikes ' + bikesClass + '">' + s.bikes_available + ' vélos</div></div>';
+    html += '</div>';
+  });
+
+  if (top3.length === 0) {
+    html = '<div style="padding:20px;text-align:center;color:var(--text-secondary)">Aucune station dans ce rayon. Augmentez le rayon.</div>';
+  }
+
+  document.getElementById('stations').innerHTML = html;
+  document.getElementById('total-stations').textContent = infoResult.data.data.stations.length;
+  document.getElementById('fetch-time').textContent = fetchTime;
+  document.getElementById('calc-time').textContent = calcTime;
+
+  results.style.display = 'block';
+  status.textContent = '✅ Test réussi — ' + top3.length + ' station(s) dans un rayon de ' + radius + 'm (' + (Date.now() - t0) + 'ms total)';
+  status.className = 'status';
+  btn.disabled = false;
+  btn.textContent = '⚡ Retester';
+
+  log('✅ ' + top3.length + ' station(s) trouvée(s) en ' + (Date.now() - t0) + 'ms');
+  if (top3.length > 0) {
+    log('📍 Top: ' + top3.map(function(s){return s.name + '(' + s.distance + 'm)';}).join(', '));
+  }
+}
+
+// Slider
+document.getElementById('radius').addEventListener('input', function() {
+  document.getElementById('radius-display').textContent = this.value + ' m';
+});
+
+// Auto-test on load
+window.addEventListener('DOMContentLoaded', function() {
+  log('🚀 Sandbox M0 chargé. Appuyez sur Tester.');
+});
+</script>
+
+</body>
+</html>
