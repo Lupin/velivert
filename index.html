@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Vélivert</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --text: #e0e0e0;
+    --text-secondary: #999;
+    --accent: #00c853;
+    --accent-warn: #ff6d00;
+    --separator: #2a2a2a;
+    --radius-default: 8px;
+    --font-body: "FK Grotesk Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); padding: 16px; max-width: 480px; margin: 0 auto; -webkit-tap-highlight-color: transparent; }
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 2px; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+  .card { background: var(--card); border-radius: var(--radius-default); padding: 16px; margin-bottom: 12px; }
+  .card-header { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--separator); cursor: pointer; -webkit-user-select: none; }
+  .row:last-child { border-bottom: none; }
+  .row:active { opacity: 0.7; }
+  .row-name { font-size: 16px; font-weight: 600; }
+  .row-address { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .row-right { text-align: right; }
+  .row-distance { font-size: 16px; font-weight: 700; color: var(--accent); }
+  .row-bikes { font-size: 13px; color: var(--text-secondary); }
+  .row-bikes.zero { color: var(--accent-warn); }
+  .chevron { font-size: 20px; color: var(--text-secondary); margin-left: 8px; }
+  .slider-container { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .slider-label { font-size: 12px; color: var(--text-secondary); min-width: 38px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); height: 4px; }
+  .slider-value { text-align: center; color: var(--accent); font-weight: 700; font-size: 14px; margin-top: 4px; }
+  .btn { background: var(--accent); color: #000; border: none; border-radius: var(--radius-default); padding: 12px 24px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; font-family: var(--font-body); margin-top: 12px; }
+  .btn:active { opacity: 0.8; }
+  .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--separator); }
+  .status { font-size: 13px; color: var(--text-secondary); text-align: center; padding: 20px 0; }
+  .status.error { color: var(--accent-warn); }
+  .detail-header { margin-bottom: 16px; }
+  .detail-back { color: var(--accent); font-size: 15px; cursor: pointer; background: none; border: none; font-family: var(--font-body); padding: 0; margin-bottom: 8px; display: inline-block; }
+  .detail-back:active { opacity: 0.7; }
+  .detail-name { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--separator); }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--text-secondary); font-size: 14px; }
+  .detail-value { font-size: 14px; font-weight: 600; }
+  .tutorial { text-align: center; padding: 30px 16px; }
+  .tutorial-icon { font-size: 48px; margin-bottom: 16px; }
+  .tutorial-text { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 8px; }
+  .tutorial-path { background: var(--card); border-radius: var(--radius-default); padding: 12px 16px; font-size: 13px; color: var(--text); text-align: left; line-height: 1.8; margin: 16px 0; }
+  footer { text-align: center; color: #444; font-size: 11px; margin-top: 24px; padding-bottom: 32px; }
+  .hidden { display: none !important; }
+  .refresh-btn { background: none; border: 1px solid var(--separator); color: var(--text-secondary); padding: 4px 12px; border-radius: var(--radius-default); font-size: 13px; cursor: pointer; font-family: var(--font-body); }
+  .refresh-btn:active { background: var(--separator); }
+  .empty-state { text-align: center; padding: 24px 0; color: var(--text-secondary); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loading" class="status">Connexion aux lunettes...</div>
+
+<!-- Phone UI (visible once bridge is ready) -->
+<div id="phone-ui" class="hidden">
+
+  <h1>Vélivert</h1>
+  <p class="subtitle" id="status-text">Stations à proximité</p>
+
+  <!-- Geolocation denied screen -->
+  <div id="tutorial-panel" class="hidden">
+    <div class="tutorial">
+      <div class="tutorial-icon">📍</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px">Localisation requise</div>
+      <div class="tutorial-text">
+        Vélivert a besoin de votre position pour trouver les stations les plus proches.
+      </div>
+      <div class="tutorial-path">
+        Pour activer :<br>
+        Réglages → Even Realities →<br>
+        Localisation → Pendant l'utilisation
+      </div>
+      <button class="btn" onclick="requestPosition()">Réessayer</button>
+    </div>
+  </div>
+
+  <!-- Main panel -->
+  <div id="main-panel">
+
+    <!-- Radius slider -->
+    <div class="card">
+      <div class="card-header">RAYON</div>
+      <div class="slider-container">
+        <span class="slider-label">300m</span>
+        <input type="range" id="radius-slider" min="300" max="3000" step="100" value="1000" oninput="onRadiusChange(this.value)">
+        <span class="slider-label">3000m</span>
+      </div>
+      <div class="slider-value" id="radius-display">1000 m</div>
+    </div>
+
+    <!-- Stations list -->
+    <div class="card">
+      <div class="card-header">
+        <span>STATIONS (<span id="stations-count">0</span>)</span>
+        <button class="refresh-btn" onclick="loadStations()">↻</button>
+      </div>
+      <div id="stations-list">
+        <div class="empty-state">Chargement des stations...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Station detail panel -->
+  <div id="detail-panel" class="hidden">
+    <div class="detail-header">
+      <button class="detail-back" onclick="hideDetail()">← Retour</button>
+      <div class="detail-name" id="detail-name"></div>
+    </div>
+    <div class="card">
+      <div class="detail-row"><span class="detail-label">Adresse</span><span class="detail-value" id="detail-address"></span></div>
+      <div class="detail-row"><span class="detail-label">Distance</span><span class="detail-value" id="detail-distance"></span></div>
+      <div class="detail-row"><span class="detail-label">Vélos disponibles</span><span class="detail-value" id="detail-bikes"></span></div>
+      <div class="detail-row"><span class="detail-label">Places libres</span><span class="detail-value" id="detail-docks"></span></div>
+      <div class="detail-row"><span class="detail-label">Capacité</span><span class="detail-value" id="detail-capacity"></span></div>
+    </div>
+  </div>
+
+  <footer>Vélivert v1.0.0</footer>
+</div>
+
+<script>
+  var APP_VERSION = '1.0.0'
+  var stores = []
+  var currentRadius = 1000
+  var bridge = null
+  var bridgeReady = false
+
+  // === Bridge handoff (poll window.__bridge from main.ts) ===
+  function initBridge() {
+    return new Promise(function(resolve) {
+      if (window.__bridge) {
+        bridge = window.__bridge
+        bridgeReady = true
+        resolve()
+        return
+      }
+      var attempts = 0
+      var check = setInterval(function() {
+        attempts++
+        if (window.__bridge) {
+          bridge = window.__bridge
+          bridgeReady = true
+          clearInterval(check)
+          resolve()
+        } else if (attempts > 20) {
+          clearInterval(check)
+          console.log('[Vélivert] Bridge not found, proceeding without')
+          resolve()
+        }
+      }, 100)
+    })
+  }
+
+  // === Geolocation ===
+  function requestPosition() {
+    return new Promise(function(resolve, reject) {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not available'))
+        return
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 60000,
+      })
+    })
+  }
+
+  // === Core: fetch + compute + render ===
+  function loadStations() {
+    document.getElementById('status-text').textContent = 'Localisation en cours...'
+
+    requestPosition()
+      .then(function(pos) {
+        var lat = pos.coords.latitude
+        var lon = pos.coords.longitude
+        document.getElementById('status-text').textContent = 'Stations à proximité'
+
+        // Push position to main.ts for G2 rendering
+        if (typeof window.__updatePosition === 'function') {
+          window.__updatePosition(lat, lon, currentRadius)
+        }
+
+        // Fetch and compute directly for companion UI
+        fetchAndCompute(lat, lon)
+      })
+      .catch(function(err) {
+        console.log('[Vélivert] Geolocation denied:', err.message)
+        document.getElementById('tutorial-panel').classList.remove('hidden')
+        document.getElementById('main-panel').classList.add('hidden')
+      })
+  }
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+
+  function fetchAndCompute(lat, lon) {
+    var INFO_URL = 'https://api.saint-etienne-metropole.fr/velivert/api/station_information.json'
+    var STATUS_URL = 'https://api.saint-etienne-metropole.fr/velivert/api/station_status.json'
+
+    var p1 = new Promise(function(resolve) {
+      fetch(INFO_URL)
+        .then(function(r) { return r.ok ? r.json().then(resolve) : resolve(null) })
+        .catch(function() { resolve(null) })
+    })
+    var p2 = new Promise(function(resolve) {
+      fetch(STATUS_URL)
+        .then(function(r) { return r.ok ? r.json().then(resolve) : resolve(null) })
+        .catch(function() { resolve(null) })
+    })
+
+    Promise.all([p1, p2]).then(function(results) {
+      var info = results[0], status = results[1]
+      if (!info || !info.data || !info.data.stations) {
+        renderError('Impossible de charger les données Vélivert.')
+        return
+      }
+      if (!status || !status.data || !status.data.stations) {
+        renderError('Impossible de charger les disponibilités.')
+        return
+      }
+
+      // Merge
+      var statusById = {}
+      status.data.stations.forEach(function(s) { statusById[s.station_id] = s })
+
+      var stations = info.data.stations.map(function(s) {
+        var st = statusById[s.station_id] || {}
+        var d = Math.round(haversine(lat, lon, s.lat, s.lon))
+        return {
+          station_id: s.station_id,
+          name: s.name,
+          lat: s.lat, lon: s.lon,
+          capacity: s.capacity || 0,
+          address: s.address || 'Saint-Étienne',
+          bikes_available: st.num_bikes_available || 0,
+          docks_available: st.num_docks_available || 0,
+          distance: d,
+        }
+      })
+
+      // Filter + sort
+      var nearby = stations.filter(function(s) { return s.distance <= currentRadius })
+      nearby.sort(function(a, b) { return a.distance - b.distance })
+      var top3 = nearby.slice(0, 3)
+
+      stores = top3
+      renderList(top3)
+    })
+  }
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    var R = 6371000, toRad = function(d) { return d * Math.PI / 180 }
+    var dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1)
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2)
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  }
+
+  // === Rendering ===
+  function renderList(stations) {
+    var html = ''
+    if (stations.length === 0) {
+      html = '<div class="empty-state">Aucune station dans ce rayon.<br>Augmentez le rayon.</div>'
+    } else {
+      stations.forEach(function(s, i) {
+        var bikesClass = s.bikes_available === 0 ? ' zero' : ''
+        html += '<div class="row" onclick="showDetail(' + i + ')">'
+        html += '<div>'
+        html += '<div class="row-name">' + esc(s.name) + '</div>'
+        html += '<div class="row-address">' + esc(s.address) + '</div>'
+        html += '</div>'
+        html += '<div style="display:flex;align-items:center">'
+        html += '<div class="row-right">'
+        html += '<div class="row-distance">' + s.distance + ' m</div>'
+        html += '<div class="row-bikes' + bikesClass + '">' + s.bikes_available + ' vélos</div>'
+        html += '</div>'
+        html += '<span class="chevron">›</span>'
+        html += '</div>'
+        html += '</div>'
+      })
+    }
+    document.getElementById('stations-list').innerHTML = html
+    document.getElementById('stations-count').textContent = stations.length
+  }
+
+  function renderError(msg) {
+    document.getElementById('stations-list').innerHTML = '<div class="empty-state">' + esc(msg) + '</div>'
+    document.getElementById('stations-count').textContent = '0'
+    document.getElementById('status-text').textContent = 'Erreur'
+  }
+
+  function showDetail(idx) {
+    var s = stores[idx]
+    document.getElementById('detail-name').textContent = s.name
+    document.getElementById('detail-address').textContent = s.address
+    document.getElementById('detail-distance').textContent = s.distance + ' m'
+    document.getElementById('detail-bikes').textContent = s.bikes_available
+    document.getElementById('detail-docks').textContent = s.docks_available
+    document.getElementById('detail-capacity').textContent = s.capacity
+    document.getElementById('main-panel').classList.add('hidden')
+    document.getElementById('detail-panel').classList.remove('hidden')
+  }
+
+  function hideDetail() {
+    document.getElementById('detail-panel').classList.add('hidden')
+    document.getElementById('main-panel').classList.remove('hidden')
+  }
+
+  function onRadiusChange(val) {
+    currentRadius = parseInt(val)
+    document.getElementById('radius-display').textContent = val + ' m'
+  }
+
+  // === Init ===
+  initBridge().then(function() {
+    document.getElementById('loading').classList.add('hidden')
+    document.getElementById('phone-ui').classList.remove('hidden')
+    loadStations()
+  })
+
+  // === Auto-refresh every 60s ===
+  setInterval(function() {
+    if (!bridgeReady) return
+    if (document.getElementById('main-panel').classList.contains('hidden')) return
+    loadStations()
+  }, 60000)
+
+  // Expose handlers to global scope for inline onclick (Even WebView requirement)
+  window.showDetail = showDetail
+  window.hideDetail = hideDetail
+  window.loadStations = loadStations
+  window.requestPosition = requestPosition
+  window.onRadiusChange = onRadiusChange
+</script>
+
+</body>
+</html>
