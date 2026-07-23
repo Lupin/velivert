@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # sim.sh — build + launch EvenHub simulator for Vélivert
 # Usage: ./sim.sh
+# NOTE: launches Vite + simulator on macOS (not in Hermes VM) because
+# the simulator needs to connect to localhost on the macOS host.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -13,24 +15,23 @@ sleep 1
 echo "→ Building..."
 npm run build
 
-echo "→ Launching Vite dev server..."
-npx vite --host 0.0.0.0 --port 5173 &
-VITE_PID=$!
-sleep 3
+echo "→ Launching Vite on macOS..."
+osascript -e "tell application \"Terminal\" to do script \"cd $(pwd) && npx vite --host 0.0.0.0 --port 5173\""
+sleep 4
 
-# Wait for Vite to be ready
+# Verify Vite is up
 for i in $(seq 1 10); do
   if curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/ 2>/dev/null | grep -q 200; then
+    echo "→ Vite ready ✓"
     break
   fi
   sleep 1
 done
 
-echo "→ Launching EvenHub Simulator..."
-npx evenhub-simulator http://localhost:5173 &
-SIM_PID=$!
+echo "→ Launching EvenHub Simulator on macOS..."
+osascript -e "tell application \"Terminal\" to do script \"cd $(pwd) && npx evenhub-simulator http://localhost:5173\""
 
-echo "→ Ready. Glasses Display: http://localhost:5173"
-echo "→ QR for sideload: http://$(ipconfig getifaddr en0 2>/dev/null || echo 'YOUR_IP'):5173/"
-echo "→ Press Ctrl+C to stop (or close the simulator window)"
-wait $VITE_PID
+echo "→ Ready."
+echo "   Companion UI: http://localhost:5173"
+echo "   Glasses Display window should appear on macOS."
+echo "   Use Up/Down/Click buttons at bottom of simulator window to interact."
