@@ -71,42 +71,144 @@
 <div class="detail-row"><span class="detail-label">Vélos disponibles</span><span class="detail-value" id="detail-bikes"></span></div>
 <div class="detail-row"><span class="detail-label">Places libres</span><span class="detail-value" id="detail-docks"></span></div>
 <div class="detail-row"><span class="detail-label">Capacité</span><span class="detail-value" id="detail-capacity"></span></div></div></div>
-<footer>Vélivert v1.1.2 · <a href="https://github.com/nous-hermes/velivert" style="color:#555">GitHub</a></footer>
-<script>(function(){
-'use strict';
-var stores=[],allStations=[],sortedStations=[],favorites={},currentLat=45.4397,currentLon=4.3872;
-function L(){try{var r=localStorage.getItem('velivert-favs');if(r)favorites=JSON.parse(r)}catch(e){favorites={}}}
-function S(){try{localStorage.setItem('velivert-favs',JSON.stringify(favorites))}catch(e){}}
-function E(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function H(a,b,c,d){var R=6371000,p=Math.PI/180,x=(c-a)*p,y=(d-b)*p,la=a*p,lc=c*p,s=Math.sin(x/2),t=Math.sin(y/2);return R*2*Math.atan2(Math.sqrt(s*s+Math.cos(la)*Math.cos(lc)*t*t),Math.sqrt(1-(s*s+Math.cos(la)*Math.cos(lc)*t*t)))}
-function loadStations(){document.getElementById('status-text').textContent='Chargement...';FC(currentLat,currentLon)}
-function FC(lat,lon){
-var U='https://api.saint-etienne-metropole.fr/velivert/api/station_information.json',V='https://api.saint-etienne-metropole.fr/velivert/api/station_status.json';
-var p1=new Promise(function(r){fetch(U).then(function(x){return x.ok?x.json().then(r):r(null)}).catch(function(){r(null)})});
-var p2=new Promise(function(r){fetch(V).then(function(x){return x.ok?x.json().then(r):r(null)}).catch(function(){r(null)})});
-Promise.all([p1,p2]).then(function(R){var info=R[0],status=R[1];
-if(!info||!info.data||!info.data.stations){RE('Impossible de charger les données.');return}
-if(!status||!status.data||!status.data.stations){RE('Impossible de charger les disponibilités.');return}
-var sb={};status.data.stations.forEach(function(s){sb[s.station_id]=s});
-allStations=info.data.stations.map(function(s){var st=sb[s.station_id]||{};return{station_id:s.station_id,name:s.name,lat:s.lat,lon:s.lon,capacity:s.capacity||0,address:s.address||'Saint-Étienne',bikes_available:st.num_bikes_available||0,docks_available:st.num_docks_available||0,distance:Math.round(H(lat,lon,s.lat,s.lon))}});
-document.getElementById('status-text').textContent='Stations à proximité';
-var top3=allStations.slice().sort(function(a,b){return a.distance-b.distance}).slice(0,3);
-stores=top3;RL(top3);RA();UN();UF()})}
-function RL(st){var h='';if(st.length===0){h='<div class="empty-state">Aucune station.</div>'}else{st.forEach(function(s,i){var bc=s.bikes_available===0?' zero':'';h+='<div class="row" onclick="showDetail('+i+')"><div><div class="row-name">'+E(s.name)+'</div><div class="row-address">'+E(s.address)+'</div></div><div style="display:flex;align-items:center"><div class="row-right"><div class="row-distance">'+s.distance+' m</div><div class="row-bikes'+bc+'">'+s.bikes_available+' vélos</div></div><span class="chevron">›</span></div></div>'})}
-document.getElementById('stations-list').innerHTML=h;document.getElementById('stations-count').textContent=st.length}
-function RA(){sortedStations=allStations.slice().sort(function(a,b){return a.name.localeCompare(b.name)});var h='';sortedStations.forEach(function(s,i){var c=favorites[s.station_id]?' checked':'',bc=s.bikes_available===0?' zero':'';h+='<div class="row" onclick="showStationDetail('+i+')"><input type="checkbox" class="fav-cb"'+c+' onclick="toggleFavorite(event,\''+s.station_id+'\')"><div style="flex:1;min-width:0"><div class="row-name">'+E(s.name)+'</div><div class="row-address">'+E(s.address)+' · '+s.distance+' m</div></div><div style="display:flex;align-items:center;flex-shrink:0"><div class="row-right"><div class="row-bikes'+bc+'">'+s.bikes_available+' vélos</div></div></div></div>'});document.getElementById('all-stations-list').innerHTML=h;document.getElementById('all-count').textContent=sortedStations.length}
-function RF(){var fs=allStations.filter(function(s){return favorites[s.station_id]}),card=document.getElementById('favs-card');if(fs.length===0){card.classList.add('hidden');return}card.classList.remove('hidden');fs.sort(function(a,b){return a.distance-b.distance});var h='';fs.forEach(function(s){var bc=s.bikes_available===0?' zero':'';h+='<div class="row" onclick="showFavDetail(\''+s.station_id+'\')"><div style="flex:1;min-width:0"><div class="row-name">'+E(s.name)+'</div><div class="row-address">'+E(s.address)+' · '+s.distance+' m</div></div><div class="row-right"><div class="row-bikes'+bc+'">'+s.bikes_available+' vélos</div></div></div>'});document.getElementById('favs-list').innerHTML=h;document.getElementById('favs-count').textContent=fs.length}
-function UN(){var fs=allStations.filter(function(s){return favorites[s.station_id]}),fi={};fs.forEach(function(s){fi[s.station_id]=true});var nr=allStations.filter(function(s){return !fi[s.station_id]});nr.sort(function(a,b){return a.distance-b.distance});var c=fs.concat(nr).slice(0,3);if(c.length>0){stores=c;RL(stores)}}
-function FD(s){document.getElementById('detail-name').textContent=s.name;document.getElementById('detail-address').textContent=s.address;document.getElementById('detail-distance').textContent=s.distance+' m';document.getElementById('detail-bikes').textContent=s.bikes_available;document.getElementById('detail-docks').textContent=s.docks_available;document.getElementById('detail-capacity').textContent=s.capacity;document.getElementById('main-panel').classList.add('hidden');document.getElementById('detail-panel').classList.remove('hidden')}
-function showDetail(i){var s=stores[i];if(s)FD(s)}
-function showStationDetail(i){var s=sortedStations[i];if(s)FD(s)}
-function showFavDetail(id){var s=allStations.find(function(st){return st.station_id===id});if(s)FD(s)}
-function hideDetail(){document.getElementById('detail-panel').classList.add('hidden');document.getElementById('main-panel').classList.remove('hidden')}
-function RE(m){document.getElementById('stations-list').innerHTML='<div class="empty-state">'+E(m)+'</div>';document.getElementById('stations-count').textContent='0';document.getElementById('status-text').textContent='Erreur'}
-function toggleAllStations(){var l=document.getElementById('all-stations-list'),a=document.getElementById('all-arrow');if(l.style.display==='none'){l.style.display='block';a.textContent='▲'}else{l.style.display='none';a.textContent='▼'}}
-function toggleFavorite(e,id){e.stopPropagation();if(favorites[id]){delete favorites[id]}else{favorites[id]=true}S();UF();UN();RA()}
-function UF(){var c=Object.keys(favorites).length;document.getElementById('fav-count').textContent=c>0?c+' favori'+(c>1?'s':''):'';RF()}
-window.showDetail=showDetail;window.showStationDetail=showStationDetail;window.showFavDetail=showFavDetail;window.hideDetail=hideDetail;window.loadStations=loadStations;window.toggleAllStations=toggleAllStations;window.toggleFavorite=toggleFavorite;
-L();loadStations();setInterval(function(){if(document.getElementById('main-panel').classList.contains('hidden'))return;loadStations()},60000)})();</script>
+<footer>Vélivert v1.1.2 · <a href="https://github.com/Lupin/velivert" style="color:#555">GitHub</a></footer>
+<script>
+(function() {
+  'use strict';
+  var stores = [], allStations = [], sortedStations = [], favorites = {};
+  var defaultLat = 45.4397, defaultLon = 4.3872;
+
+  function loadFavorites() {
+    try { var r = localStorage.getItem('velivert-favs'); if (r) favorites = JSON.parse(r) } catch(e) { favorites = {} }
+  }
+  function saveFavorites() {
+    try { localStorage.setItem('velivert-favs', JSON.stringify(favorites)) } catch(e) {}
+  }
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function haversine(a,b,c,d) {
+    var R=6371000, p=Math.PI/180, x=(c-a)*p, y=(d-b)*p, sa=a*p, sc=c*p;
+    var sx=Math.sin(x/2), sy=Math.sin(y/2);
+    var h = sx*sx + Math.cos(sa)*Math.cos(sc)*sy*sy;
+    return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+  }
+
+  // Try GPS, fall back to Saint-Étienne
+  function loadStations() {
+    var txt = document.getElementById('status-text');
+    txt.textContent = 'Localisation en cours...';
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        txt.textContent = 'Stations à proximité';
+        fetchAndCompute(pos.coords.latitude, pos.coords.longitude);
+      }, function() {
+        txt.textContent = 'Position approx. (Saint-Étienne)';
+        fetchAndCompute(defaultLat, defaultLon);
+      }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+    } else {
+      txt.textContent = 'Position approx. (Saint-Étienne)';
+      fetchAndCompute(defaultLat, defaultLon);
+    }
+  }
+
+  function fetchAndCompute(lat, lon) {
+    var U = 'https://api.saint-etienne-metropole.fr/velivert/api/station_information.json';
+    var V = 'https://api.saint-etienne-metropole.fr/velivert/api/station_status.json';
+    var p1 = new Promise(function(r) { fetch(U).then(function(x) { return x.ok ? x.json().then(r) : r(null) }).catch(function() { r(null) }) });
+    var p2 = new Promise(function(r) { fetch(V).then(function(x) { return x.ok ? x.json().then(r) : r(null) }).catch(function() { r(null) }) });
+    Promise.all([p1,p2]).then(function(R) {
+      var info=R[0], status=R[1];
+      if (!info||!info.data||!info.data.stations) { renderError('Données indisponibles.'); return }
+      if (!status||!status.data||!status.data.stations) { renderError('Disponibilités indisponibles.'); return }
+      var sb={}; status.data.stations.forEach(function(s){ sb[s.station_id]=s });
+      allStations = info.data.stations.map(function(s){
+        var st=sb[s.station_id]||{};
+        return {
+          station_id:s.station_id, name:s.name, lat:s.lat, lon:s.lon,
+          capacity:s.capacity||0, address:s.address||'Saint-Étienne',
+          bikes_available:st.num_bikes_available||0, docks_available:st.num_docks_available||0,
+          distance:Math.round(haversine(lat,lon,s.lat,s.lon))
+        }
+      });
+      var top3 = allStations.slice().sort(function(a,b){ return a.distance-b.distance }).slice(0,3);
+      stores = top3;
+      renderList(top3); renderAllStations(); updateNearestWithFavs(); updateFavCount();
+    });
+  }
+
+  function renderList(st) {
+    var h=''; st.forEach(function(s,i) {
+      var bc=s.bikes_available===0?' zero':'';
+      h+='<div class="row" onclick="showDetail('+i+')"><div><div class="row-name">'+esc(s.name)+'</div><div class="row-address">'+esc(s.address)+'</div></div><div style="display:flex;align-items:center"><div class="row-right"><div class="row-distance">'+s.distance+' m</div><div class="row-bikes'+bc+'">'+s.bikes_available+' vélos</div></div><span class="chevron">›</span></div></div>'
+    });
+    document.getElementById('stations-list').innerHTML = h || '<div class="empty-state">Aucune station.</div>';
+    document.getElementById('stations-count').textContent = st.length;
+  }
+
+  function renderAllStations() {
+    sortedStations = allStations.slice().sort(function(a,b){ return a.name.localeCompare(b.name) });
+    var h=''; sortedStations.forEach(function(s,i) {
+      var c=favorites[s.station_id]?' checked':'', bc=s.bikes_available===0?' zero':'';
+      h+='<div class="row" onclick="showStationDetail('+i+')"><input type="checkbox" class="fav-cb"'+c+' onclick="toggleFavorite(event,\''+s.station_id+'\')"><div style="flex:1;min-width:0"><div class="row-name">'+esc(s.name)+'</div><div class="row-address">'+esc(s.address)+' · '+s.distance+' m</div></div><div style="display:flex;align-items:center;flex-shrink:0"><div class="row-right"><div class="row-bikes'+bc+'">'+s.bikes_available+' vélos</div></div></div></div>'
+    });
+    document.getElementById('all-stations-list').innerHTML = h;
+    document.getElementById('all-count').textContent = sortedStations.length;
+  }
+
+  function renderFavs() {
+    var fs=allStations.filter(function(s){return favorites[s.station_id]});
+    var card=document.getElementById('favs-card');
+    if (fs.length===0) { card.classList.add('hidden'); return }
+    card.classList.remove('hidden');
+    fs.sort(function(a,b){return a.distance-b.distance});
+    var h=''; fs.forEach(function(s){
+      var bc=s.bikes_available===0?' zero':'';
+      h+='<div class="row" onclick="showFavDetail(\''+s.station_id+'\')"><div style="flex:1;min-width:0"><div class="row-name">'+esc(s.name)+'</div><div class="row-address">'+esc(s.address)+' · '+s.distance+' m</div></div><div class="row-right"><div class="row-bikes'+bc+'">'+s.bikes_available+' vélos</div></div></div>'
+    });
+    document.getElementById('favs-list').innerHTML = h;
+    document.getElementById('favs-count').textContent = fs.length;
+  }
+
+  function updateNearestWithFavs() {
+    var fs=allStations.filter(function(s){return favorites[s.station_id]}), fi={};
+    fs.forEach(function(s){fi[s.station_id]=true});
+    var nr=allStations.filter(function(s){return !fi[s.station_id]});
+    nr.sort(function(a,b){return a.distance-b.distance});
+    var c=fs.concat(nr).slice(0,3);
+    if (c.length>0) { stores=c; renderList(stores) }
+  }
+
+  function fillDetail(s) {
+    document.getElementById('detail-name').textContent=s.name;
+    document.getElementById('detail-address').textContent=s.address;
+    document.getElementById('detail-distance').textContent=s.distance+' m';
+    document.getElementById('detail-bikes').textContent=s.bikes_available;
+    document.getElementById('detail-docks').textContent=s.docks_available;
+    document.getElementById('detail-capacity').textContent=s.capacity;
+    document.getElementById('main-panel').classList.add('hidden');
+    document.getElementById('detail-panel').classList.remove('hidden');
+  }
+  function showDetail(i) { var s=stores[i]; if(s) fillDetail(s) }
+  function showStationDetail(i) { var s=sortedStations[i]; if(s) fillDetail(s) }
+  function showFavDetail(id) { var s=allStations.find(function(st){return st.station_id===id}); if(s) fillDetail(s) }
+  function hideDetail() { document.getElementById('detail-panel').classList.add('hidden'); document.getElementById('main-panel').classList.remove('hidden') }
+  function renderError(m) { document.getElementById('stations-list').innerHTML='<div class="empty-state">'+esc(m)+'</div>'; document.getElementById('stations-count').textContent='0' }
+  function toggleAllStations() {
+    var l=document.getElementById('all-stations-list'), a=document.getElementById('all-arrow');
+    if (l.style.display==='none') { l.style.display='block'; a.textContent='▲' }
+    else { l.style.display='none'; a.textContent='▼' }
+  }
+  function toggleFavorite(e,id) { e.stopPropagation(); if(favorites[id]) delete favorites[id]; else favorites[id]=true; saveFavorites(); updateFavCount(); updateNearestWithFavs(); renderAllStations() }
+  function updateFavCount() { var c=Object.keys(favorites).length; document.getElementById('fav-count').textContent=c>0?c+' favori'+(c>1?'s':''):''; renderFavs() }
+
+  window.showDetail=showDetail; window.showStationDetail=showStationDetail; window.showFavDetail=showFavDetail;
+  window.hideDetail=hideDetail; window.loadStations=loadStations; window.toggleAllStations=toggleAllStations; window.toggleFavorite=toggleFavorite;
+
+  loadFavorites(); loadStations();
+  setInterval(function(){ if(!document.getElementById('main-panel').classList.contains('hidden')) loadStations() }, 60000);
+})();
+</script>
 </body>
 </html>
