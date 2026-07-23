@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 — 2026-07-23
+
+FIX
+- Import main.ts in the page — G2 bridge was never loaded, glasses display stayed black
+- Geolocation fallback to Saint-Étienne centre when GPS is unavailable (simulator)
+
 ## 1.0.0 — 2026-07-22
 
 ADD

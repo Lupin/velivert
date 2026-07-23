@@ -23,7 +23,7 @@ export function updateG2Display(bridge: any, stations: Station[]): void {
     text = lines.join('\n')
   }
 
-  text += `\n\nVélivert v${APP_VERSION}`
+  text += `\n\nVélivert v1.0.1`
 
   const property: any = {
     type: 'TextContainerProperty',

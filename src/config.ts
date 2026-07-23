@@ -22,4 +22,4 @@ export const MAX_RADIUS = 3000
 export const RADIUS_STEP = 100
 export const TOP_N = 3
 export const GEOLOC_TIMEOUT = 8_000 // ms
-export const APP_VERSION = '1.0.0'
+export const APP_VERSION = '1.0.1'
