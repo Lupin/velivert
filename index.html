@@ -200,9 +200,16 @@
         fetchAndCompute(lat, lon)
       })
       .catch(function(err) {
-        console.log('[Vélivert] Geolocation denied:', err.message)
-        document.getElementById('tutorial-panel').classList.remove('hidden')
-        document.getElementById('main-panel').classList.add('hidden')
+        console.log('[Vélivert] Geolocation failed, using default position:', err.message)
+        // Fallback: centre of Saint-Étienne for simulator / GPS timeout
+        var lat = 45.4397
+        var lon = 4.3872
+        document.getElementById('status-text').textContent = 'Position approx. (Saint-Étienne)'
+
+        if (typeof window.__updatePosition === 'function') {
+          window.__updatePosition(lat, lon, currentRadius)
+        }
+        fetchAndCompute(lat, lon)
       })
   }
 
